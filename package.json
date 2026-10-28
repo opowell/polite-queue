@@ -1,0 +1,31 @@
+{
+  "name": "polite-queue",
+  "version": "0.1.0",
+  "description": "Per-domain request scheduling: a gap and jitter between requests, per-domain and global concurrency caps, and backoff when a server pushes back.",
+  "license": "MIT",
+  "author": "opowell",
+  "repository": "github:opowell/polite-queue",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.0",
+    "vitest": "^4.1.6"
+  }
+}
