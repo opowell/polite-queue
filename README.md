@@ -8,6 +8,7 @@ Work is filed under a key (usually the host), and each key gets:
 - **a concurrency cap** for the key, and a **global cap** across all keys;
 - **backoff** — when a server answers 429/503 or a bot check, the key pauses, doubling on each repeat until a good answer, and a `Retry-After` is honoured;
 - **priority** — an interactive request can go ahead of background fill on the same key.
+- **urgent** — a request someone is waiting on skips the key's gap and the global cap, still keeping the key's own cap, any backoff, and behind higher priorities.
 
 Nothing here fetches anything. A task is whatever the caller does with its turn: a `fetch`, a browser tab load, a Playwright navigation. Zero dependencies, plain ESM, so `dist/index.js` can be imported as-is by an extension service worker.
 
@@ -44,7 +45,7 @@ try { /* ... */ } finally { release() }
 | | |
 |---|---|
 | `new PoliteQueue({ policy?, maxActive?, random? })` | `policy(key)` returns a partial `Policy` over `DEFAULT_POLICY` |
-| `run(key, task, { priority?, signal? })` | runs `task` in `key`'s turn |
+| `run(key, task, { priority?, urgent?, signal? })` | runs `task` in `key`'s turn |
 | `acquire(key, options)` | waits for the turn, resolves with `release()` |
 | `backoff(key, retryAfterMs?)` | pauses `key`; returns the pause in ms |
 | `succeed(key)` | resets `key`'s backoff |

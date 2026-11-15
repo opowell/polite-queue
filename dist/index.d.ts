@@ -39,6 +39,14 @@ export interface RunOptions {
     priority?: number;
     /** Aborting it takes a waiting task out of the queue and rejects with the signal's reason. A running task is the caller's to stop. */
     signal?: AbortSignal;
+    /**
+     * Asked for by a person waiting on it, not a crawler: it goes before the
+     * tasks of its priority that are not urgent, and waits neither for the key's
+     * gap nor for the global cap. It still waits for the key's own cap (one tab,
+     * one connection), for any backoff or pause, as the server has asked for
+     * those, and behind any task of a higher priority on its key.
+     */
+    urgent?: boolean;
 }
 /** One key as `snapshot` reports it. */
 export interface KeySnapshot {

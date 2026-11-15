@@ -142,6 +142,56 @@ describe('priority', () => {
   })
 })
 
+describe('urgent', () => {
+  it('skips the gap and goes before the tasks of its priority that are not urgent', async () => {
+    const queue = new PoliteQueue({ policy: () => ({ minGapMs: 1000 }) })
+    const log: string[] = []
+    const a = held(log, 'a')
+    void queue.run('x', a.task)
+    void queue.run('x', held(log, 'later').task)
+    void queue.run('x', held(log, 'now').task, { urgent: true })
+    await vi.advanceTimersByTimeAsync(10)
+    a.finish()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log).toEqual(['a@0', 'now@10'])
+  })
+
+  it('waits behind a task of a higher priority on its key, and its gap', async () => {
+    const queue = new PoliteQueue({ policy: () => ({ minGapMs: 1000 }) })
+    const log: string[] = []
+    const a = held(log, 'a')
+    void queue.run('x', a.task)
+    void queue.run('x', held(log, 'now').task, { urgent: true })
+    const next = held(log, 'next')
+    void queue.run('x', next.task, { priority: 1 })
+    a.finish()
+    await vi.advanceTimersByTimeAsync(1000)
+    next.finish()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log).toEqual(['a@0', 'next@1000', 'now@1000'])
+  })
+
+  it('passes the global cap but not its key\'s own', async () => {
+    const queue = new PoliteQueue({ maxActive: 1, policy: () => ({ minGapMs: 0 }) })
+    const log: string[] = []
+    void queue.run('x', held(log, 'a').task)
+    void queue.run('y', held(log, 'b').task)
+    void queue.run('z', held(log, 'now').task, { urgent: true })
+    void queue.run('x', held(log, 'x2').task, { urgent: true })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log).toEqual(['a@0', 'now@0'])
+  })
+
+  it('still waits out a backoff', async () => {
+    const queue = new PoliteQueue({ policy: () => ({ minGapMs: 0, backoffMs: 1000 }) })
+    const log: string[] = []
+    queue.backoff('x')
+    void queue.run('x', held(log, 'now').task, { urgent: true })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(log).toEqual(['now@1000'])
+  })
+})
+
 describe('backoff', () => {
   it('pauses a key, doubling each time until a success', async () => {
     const queue = new PoliteQueue({ policy: () => ({ minGapMs: 0, backoffMs: 1000, maxBackoffMs: 3000 }) })

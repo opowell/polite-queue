@@ -84,6 +84,7 @@ export class PoliteQueue {
                 }
             };
             const waiter = {
+                urgent: options.urgent ?? false,
                 priority: options.priority ?? 0,
                 seq: this.seq++,
                 start: (release) => {
@@ -96,9 +97,9 @@ export class PoliteQueue {
                 },
             };
             signal?.addEventListener('abort', onAbort, { once: true });
-            // Kept sorted: highest priority first, then oldest.
+            // Kept sorted: highest priority first, urgent first among equals, then oldest.
             let at = state.waiting.length;
-            while (at > 0 && state.waiting[at - 1].priority < waiter.priority) {
+            while (at > 0 && before(waiter, state.waiting[at - 1])) {
                 at--;
             }
             state.waiting.splice(at, 0, waiter);
@@ -188,24 +189,23 @@ export class PoliteQueue {
         const now = Date.now();
         let wakeAt = Infinity;
         for (;;) {
-            if (this.active >= this.maxActive) {
-                break;
-            }
-            // The ready key whose head waiter has the best claim: priority, then age.
+            // At the global cap only an urgent task may start.
+            const capped = this.active >= this.maxActive;
+            // The ready key whose head waiter has the best claim: priority, urgency, then age.
             let best;
             for (const entry of this.keys) {
                 const [key, state] = entry;
                 const head = state.waiting[0];
-                if (!head || state.active >= this.policy(key).maxActive) {
+                if (!head || state.active >= this.policy(key).maxActive || (capped && !head.urgent)) {
                     continue;
                 }
-                const at = Math.max(this.readyAt(key, state), state.pausedUntil);
+                const at = head.urgent ? state.pausedUntil : Math.max(this.readyAt(key, state), state.pausedUntil);
                 if (at > now) {
                     wakeAt = Math.min(wakeAt, at);
                     continue;
                 }
                 const bestHead = best?.[1].waiting[0];
-                if (!bestHead || head.priority > bestHead.priority || (head.priority === bestHead.priority && head.seq < bestHead.seq)) {
+                if (!bestHead || before(head, bestHead) || (!before(bestHead, head) && head.seq < bestHead.seq)) {
                     best = entry;
                 }
             }
@@ -263,6 +263,10 @@ export class PoliteQueue {
             this.pump();
         }, Math.max(0, at - Date.now()));
     }
+}
+/** Whether `a` has a better claim than `b` on a turn, age aside: the higher priority, then urgent. */
+function before(a, b) {
+    return a.priority !== b.priority ? a.priority > b.priority : a.urgent && !b.urgent;
 }
 /** The host a URL is for — the usual key. Anything that is not a URL is its own key. */
 export function hostOf(url) {
